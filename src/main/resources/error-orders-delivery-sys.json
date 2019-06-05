@@ -1,0 +1,65 @@
+{
+  "404": {
+    "ResultCode": "31101",
+    "Type": "ResourceNotFoundException",
+    "ResultDescription": "No resource found for the Request URL",
+    "Service": "orders",
+    "HTTPCode": "404",
+    "RootCode": "30000",
+    "RootType": "BusinessException"
+  },
+  "401": {
+    "ResultCode": "31102",
+    "Type": "AuthenticationException",
+    "ResultDescription": "Invalid Authentication.",
+    "Service": "orders",
+    "HTTPCode": "401",
+    "RootCode": "30000",
+    "RootType": "BusinessException"
+  },
+  "429": {
+    "ResultCode": "31104",
+    "Type": "RateLimitException",
+    "ResultDescription": "Too many requests.",
+    "Service": "orders",
+    "HTTPCode": "429",
+    "RootCode": "30000",
+    "RootType": "BusinessException"
+  },
+  "-1133": {
+    "ResultCode": "31105",
+    "Type": "ProductNotAvailableForDelivery",
+    "ResultDescription": "Product is not available for delivery.",
+    "Service": "orders",
+    "HTTPCode": "400",
+    "RootCode": "30000",
+    "RootType": "ValidationException"
+  },
+  "400": {
+    "ResultCode": "40851",
+    "Type": "ValidationException",
+    "ResultDescription": "Invalid / Missing Params.",
+    "Service": "orders",
+    "HTTPCode": "400",
+    "RootCode": "40000",
+    "RootType": "ValidationException"
+  },
+  "500": {
+    "ResultCode": "50689",
+    "Type": "ServerException",
+    "ResultDescription": "Internal server error",
+    "Service": "orders",
+    "HTTPCode": "500",
+    "RootCode": "50000",
+    "RootType": "ServerException"
+  },
+  "503": {
+    "ResultCode": "50690",
+    "Type": "ServiceUnavailableException",
+    "ResultDescription": "The service is currently unavailable",
+    "Service": "orders",
+    "HTTPCode": "503",
+    "RootCode": "50000",
+    "RootType": "ServerException"
+  }
+}

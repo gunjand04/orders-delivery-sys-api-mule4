@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:munit="http://www.mulesoft.org/schema/mule/munit" xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd ">
+    <munit:config name="orders-delivery-sys-api-apikit-test.xml" />
+    <http:request-config name="HTTP_Request_Configuration" basePath="/sys/v1">
+        <http:request-connection host="localhost" port="8091" />
+    </http:request-config>
+
+    <configuration-properties doc:name="Configuration properties" doc:id="ab3d37ad-5ca6-4df8-9feb-357b9b354b7e" file="orders-delivery-sys-munit-test.properties" />
+	<munit:test name="successFlowTest" description="Verifying functionality of [get:\order\delivery\(vendorId)\(orderId):orders-delivery-sys-api-config-200-application\json]">
+        <munit:enable-flow-sources>
+            <munit:enable-flow-source value="orders-delivery-sys-api-main" />
+            <munit:enable-flow-source value="get:\order\delivery\(vendorId)\(orderId):orders-delivery-sys-api-config" />
+        </munit:enable-flow-sources>
+        <munit:behavior>
+
+			<munit-tools:mock-when doc:name="Mock when" doc:id="a755577b-c473-4e59-b685-13fb8a090821" processor="http:request">
+				<munit-tools:then-return >
+					<munit-tools:payload value="#[MunitTools::getResourceAsString('mocked-response.json')]" mediaType="application/json" encoding="UTF-8"/>
+					<munit-tools:attributes value='#["StatusCode" : 200]'/>
+				</munit-tools:then-return>
+			</munit-tools:mock-when>			
+        </munit:behavior>
+        <munit:execution>
+			<munit:set-event doc:name="Set Event" doc:id="a39da448-ad87-42f5-a160-336fc1c496cc" >		
+				<munit:payload value="#[null]" />
+				<munit:attributes value="#[{uriParams:{'orderId':'asdad32323', 'vendorId':'UBEREATS'}}]" encoding="UTF-8" mediaType="application/java"/>
+			</munit:set-event>
+			<ee:transform doc:name="Transform Message" doc:id="215a403a-a6f8-453b-8fb1-d850eb0d6256">
+            <ee:variables>
+				<ee:set-variable variableName="env"><![CDATA['dev']]></ee:set-variable>
+				<ee:set-variable variableName="apiName"><![CDATA['orders.delivery.sys.api.name']]></ee:set-variable>
+				<ee:set-variable variableName="marketId"><![CDATA['US']]></ee:set-variable>
+				<ee:set-variable variableName="correlationId"><![CDATA['asdasd444eafadf']]></ee:set-variable>
+				<ee:set-variable variableName="User-Agent"><![CDATA['iphone']]></ee:set-variable>
+				<ee:set-variable variableName="Accept-Language"><![CDATA['en-US']]></ee:set-variable>
+				<ee:set-variable variableName="status"><![CDATA['active']]></ee:set-variable>
+				<ee:set-variable variableName="uber-accessToken"><![CDATA['asdsad3333']]></ee:set-variable>
+				<ee:set-variable variableName="uber-refreshToken"><![CDATA['sadasd34333asdasd']]></ee:set-variable>
+            </ee:variables>
+		</ee:transform>				
+			<flow-ref doc:name="Flow Reference" doc:id="182c00c9-72a3-4c34-939c-8f20472fb90d" name="get:\order\delivery\(vendorId)\(orderId):orders-delivery-sys-api-config"/>
+        </munit:execution>
+		<munit:validation>
+            <munit-tools:assert-that expression="#[payload.status.code]" is="#[MunitTools::equalTo(20000)]" message="The reponse Status code is not correct!" doc:name="Assert That Status Code is 20000" />
+        </munit:validation>
+        
+    </munit:test>    
+    
+	  
+</mule>

@@ -1,0 +1,72 @@
+#%RAML 1.0
+baseUri: https://anypoint.mulesoft.com/mocking/api/v1/links/86076970-533c-4eec-b34a-9df35ee0fd45/ # 
+
+title: orders-delivery-sys-api
+version: 1
+protocols: [HTTP,HTTPS]
+mediaType: application/json
+
+/order:
+  /delivery:    
+    /{vendorId}:
+      /{orderId}:
+        uriParameters:
+          vendorId:
+            description: vendor id.
+            example: UBEREATS
+            enum: ['UBEREATS']
+            type: string        
+          orderId:
+            description: order id.
+            example: ba455313-1a35-4fff-865d-713a4add204c
+            type: string   
+        get:
+          description: api for getting order records
+          headers:
+            Accept-Language:
+              description: Device locale setting e.g. en-US,fr-CA which can also be referred as language.
+              type: string
+              example: en-US
+              default: en-US
+            marketid:
+              description: This is the market id of the calling client.
+              type: string
+              example: US
+              default: US
+            User-Agent:
+              description: A value indicating that the Mobile SDK is making the request to the server.
+              type: string
+              example: phone    
+              default: phone    
+            correlation-id:
+              description: Unique identifier for a message, this will be used to trace the message beyond the boundaries of the API (end-to-end traceability)
+              type: string
+              example: a348b4c3-7915-4f5f-942b-b79f3589759d
+              default: a348b4c3-7915-4f5f-942b-b79f3589759d
+          queryParameters: 
+            status:
+              description: status of order draft or active.
+              enum: [draft, active]
+              default: draft
+              type: string
+              example: draft                    
+          responses:
+            200:
+              body:
+                application/json:
+                  example: |
+                    {
+                    "status": {
+                    "code": 20000,
+                    "message": "the call was successful",
+                    "type": "success"
+                    },
+                    "response": {
+                    "delivery": {
+                    "vendorStoreId": "295a48ec-f73a-44b3-bf9a-84c8f33fc53b",
+                    "vendorDraftOrderId": "9df33b08-ce3d-4e96-9dfc-053d92c02206",
+                    "vendorOrderId": "295a48ec-f73a-44b3-bf9a-84c8f33fc53a",
+                    "status": "CREATED"
+                    }
+                    }             
+                    }

@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd">
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="37c4ad7f-7939-4ccb-9d6f-b518b47e54ed" >
+		<http:request-connection host='#[vars."target.host"]' port='#[vars."target.port"]' />
+	</http:request-config>
+	<sub-flow name="backendRequester" doc:id="781047d3-8011-4252-b77d-58ddc3c7164b" >
+		<logger level="INFO" doc:name="Logger" doc:id="76444dbd-93e9-4bde-a6e9-a419c553de5e" message="#[attributes.headers.'correlation-id'] ******#[message]"/>
+		<http:request method="GET" doc:name="Request" doc:id="87b09193-c9ec-406b-8ba0-c06a9ba52215" config-ref="HTTP_Request_configuration" path='#[vars."target.path"]'>
+			<http:response-validator >
+				<http:success-status-code-validator values="200,401"/>
+			</http:response-validator>
+		</http:request>
+		<logger level="INFO" doc:name="Logger" doc:id="60f913d9-d612-4c2b-a533-f9b90d54a495" message="#[attributes.StatusCode]]"/>
+		<set-variable value='#[attributes.StatusCode]' doc:name="Set Variable" doc:id="dc401d3f-7cb8-4bf4-9099-69f88f390ec5" variableName="resultCode"/>
+	</sub-flow>
+	<sub-flow name="uber-refresh-token" doc:id="ed8d1df4-2402-4faf-9932-63bb4248a9c0" >
+		<choice doc:name="Choice" doc:id="6e1e93f1-5546-42cf-9a37-a6eb6afae105" >
+			<when expression='#[attributes.StatusCode == 401]'>
+				<ee:transform doc:name="uberRequest" doc:id="0968cad2-b802-48e6-af6e-297e107d5107" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{  
+   "credentials":{  
+      "token":{  
+         "accessToken": vars."uber-accessToken",        
+         "refreshToken":  vars."uber-refreshToken"                  
+      },
+      "provider":"uber"
+   }
+}]]></ee:set-payload>
+						
+					</ee:message>
+					<ee:variables >
+				<ee:set-variable variableName="target.method" ><![CDATA[p('ueOrderTokenMethod')]]></ee:set-variable>
+				<ee:set-variable variableName="target.port" ><![CDATA[p('ueOrderTokenPort')]]></ee:set-variable>
+				<ee:set-variable variableName="target.host" ><![CDATA[p('ueOrderTokenHost')]]></ee:set-variable>
+				<ee:set-variable variableName="target.path" ><![CDATA[p('ueOrderTokenPath')]]></ee:set-variable>
+						
+					</ee:variables>
+				
+				</ee:transform>
+				<flow-ref doc:name="backendRequester" doc:id="1f52c0ea-f0a8-479e-a478-1370066ee24f" name="backendRequester"/>
+				<set-variable value="#[payload.access_token]" doc:name="UE Auth Token" doc:id="0609918d-6b74-46ea-aa42-b7af8b06b49a" variableName="uber-accessToken"/>
+				<ee:transform doc:name="Transform Message" doc:id="74cdc812-4a7d-4830-acf4-27692e179cd7" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars."payload.backup"]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="authorization"><![CDATA["Bearer "++ vars.'uber-accessToken']]></ee:set-variable>
+						<ee:set-variable variableName="target.host" ><![CDATA[vars."target.host.backup"]]></ee:set-variable>
+						<ee:set-variable variableName="target.port" ><![CDATA[vars."target.port.backup"]]></ee:set-variable>
+						<ee:set-variable variableName="target.method" ><![CDATA[vars."target.method.backup"]]></ee:set-variable>
+						<ee:set-variable variableName="target.path" ><![CDATA[vars."target.path.backup"]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+				<flow-ref doc:name="backendRequester" doc:id="c785e06a-2e0f-4f49-8893-24df8c4460ea" name="backendRequester"/>
+			</when>
+			<otherwise >
+				<logger level="DEBUG" doc:name="Logger" doc:id="48a3e15b-417d-4d2d-a57f-8cdbe1866f6d" message="No need to refresh token if http status is not 401"/>
+			</otherwise>
+		</choice>
+	</sub-flow>
+	<sub-flow name="create-error-response" doc:id="6c40c0b3-daa3-45cf-be55-f223bc8ec874" >
+		<parse-template doc:name="Parse Template" doc:id="68868690-b124-4ec8-9ebd-115d129123cf" location="error-orders-delivery-sys.json" target="errorConfig" targetValue="#[payload]"/>
+		<ee:transform doc:name="Transform Message" doc:id="a2db64d2-666c-450d-841a-320c5ad8f334" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+var resultCodeTemp= if (vars.resultCode != null) vars.resultCode as String  else if (vars.ecpResultCode != null) vars.ecpResultCode as String  else 500
+var resultCode= if (vars.errorConfig.'$resultCodeTemp'.RootCode != null) resultCodeTemp  else 500
+var errorMessage = if ( vars.errorMessage != null) ". " ++ vars.errorMessage  else if (vars.errorConfig.'$resultCodeTemp'.RootCode == null) ". Mapping does not exists for backend ResulCode: " ++ resultCodeTemp  else if (vars.resultCode == null)  ". Backend Response does not contain ResultCode" else ""
+var error={
+	"code": vars.errorConfig.'$resultCode'.ResultCode as Number,
+	"type": vars.errorConfig.'$resultCode'.Type,
+	"message": vars.errorConfig.'$resultCode'.ResultDescription ++ errorMessage,
+	"property": vars.errorConfig.'$resultCode'.Property,
+	"service": vars.errorConfig.'$resultCode'.Service
+}
+---
+{
+	"status": {
+		"code": vars.errorConfig.'$resultCode'.RootCode as Number,
+		"type": vars.errorConfig.'$resultCode'.RootType,
+		"message": vars.errorConfig.'$resultCode'.message,
+		"errors": [] + error
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="8fdb60e1-34e1-4cbb-acc5-00e5151c6144" />
+	</sub-flow>
+</mule>

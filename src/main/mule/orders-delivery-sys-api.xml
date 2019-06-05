@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+    
+    <http:listener-config name="orders-delivery-sys-api-httpListenerConfig">
+        <http:listener-connection host='0.0.0.0' port="${orders.delivery.sys.private.port}" />
+    </http:listener-config>
+    
+    <apikit:config name="orders-delivery-sys-api-config" raml="orders-delivery-sys-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    
+    <configuration-properties doc:name="Configuration properties" doc:id="98c15447-c819-4944-925d-e687946d54bf" file="orders-delivery-sys-api-${deploy-env}.properties" />
+    
+	<validation:config name="Validation_Config" doc:name="Validation Config" doc:id="118a556b-367b-4e26-b69e-c5f50f4c7838" />
+	<flow name="orders-delivery-sys-api-main">
+        <http:listener config-ref="orders-delivery-sys-api-httpListenerConfig" path="${orders.delivery.sys.base.path}">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"correlation-id" : vars.correlationId,
+	"Content-Language" : vars.'Accept-Language',
+	"Content-Type" : "application/json"
+}]]]></http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+            </http:error-response>
+        </http:listener>
+		
+		<ee:transform doc:name="Transform Message" doc:id="ff5e03b7-fff4-458a-a3cf-4327cf06b4f5" >
+            <ee:variables>
+				<ee:set-variable variableName="env" ><![CDATA[p('deploy-env')]]></ee:set-variable>
+				<ee:set-variable variableName="apiName" ><![CDATA[p('orders.delivery.sys.api.name')]]></ee:set-variable>
+				<ee:set-variable variableName="appName" ><![CDATA[p('orders.delivery.sys.app.name')]]></ee:set-variable>								
+				<ee:set-variable variableName="marketId" ><![CDATA[upper(attributes.headers.marketid)]]></ee:set-variable>
+				<ee:set-variable variableName="correlationId" ><![CDATA[attributes.headers.'correlation-id']]></ee:set-variable>
+				<ee:set-variable variableName="User-Agent" ><![CDATA[attributes.headers.'User-Agent']]></ee:set-variable>
+				<ee:set-variable variableName="Accept-Language" ><![CDATA[attributes.headers.'Accept-Language']]></ee:set-variable>
+				<ee:set-variable variableName="latitude" ><![CDATA[attributes.queryParams.latitude]]></ee:set-variable>
+				<ee:set-variable variableName="longitude" ><![CDATA[attributes.queryParams.longitude]]></ee:set-variable>
+				<ee:set-variable variableName="limit" ><![CDATA[attributes.queryParams.limit]]></ee:set-variable>
+				<ee:set-variable variableName="status" ><![CDATA[attributes.queryParams.status]]></ee:set-variable>
+				<ee:set-variable variableName="uber-accessToken" ><![CDATA[attributes.headers.'uber-accessToken']]></ee:set-variable>
+				<ee:set-variable variableName="uber-refreshToken" ><![CDATA[attributes.headers.'uber-refreshToken']]></ee:set-variable>
+            </ee:variables>
+		</ee:transform>
+		<logger message="[UUID= ' ++ $(vars.uuid) ++ '] [CorrelationID= ' ++ $(vars.correlationId) ++ '] [Message= Request Received from Client] [InboundProperties= ' ++ #[attributes.headers] ++ '] " level="DEBUG" category="com.cg.logger" doc:name="Logger" doc:description="This logger component logs trace message as soon as request from client is received." />		
+		
+		<logger message="[UUID= ' ++ $(vars.uuid) ++ '] [Correlation ID= ' ++ $(vars.correlationId) ++ '] [Message= Request Received from Client] [RequestPath: ' ++ #[attributes.headers.'http.request.path'] ++ ']]" level="DEBUG" category="com.cg.perf.logger" doc:name="Logger" doc:description="This logger component logs trace message as soon as request from client is received." />		
+		    
+        <apikit:router config-ref="orders-delivery-sys-api-config" />
+    
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST" enableNotifications="true" logException="true">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd" doc:id="de9b3ed4-0a52-44da-a317-925c61d9dd28">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[400]]></ee:set-variable>
+						<ee:set-variable variableName="resultCode" ><![CDATA[400]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                        <ee:set-variable variableName="resultCode" ><![CDATA[404]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                        <ee:set-variable variableName="resultCode" ><![CDATA[405]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                        <ee:set-variable variableName="resultCode" ><![CDATA[406]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                        <ee:set-variable variableName="resultCode" ><![CDATA[415]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                        <ee:set-variable variableName="resultCode" ><![CDATA[501]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="ANY" enableNotifications="true" logException="true">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd" doc:id="e673045b-fd03-4084-b599-0e92fdca5b07">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Generic Error Occurred"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus"><![CDATA[500]]></ee:set-variable>
+						<ee:set-variable variableName="resultCode" ><![CDATA[500]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+			            
+        </error-handler>
+    </flow>
+    <flow name="orders-delivery-sys-api-console">
+        <http:listener config-ref="orders-delivery-sys-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body><![CDATA[#[payload]]]></http:body>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="orders-delivery-sys-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\order\delivery\(vendorId)\(orderId):orders-delivery-sys-api-config">
+		<ee:transform doc:name="Transform Message" doc:id="575be4b9-825a-4124-9f2d-1d770e28dcd2">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+                <ee:set-variable variableName="vendorId"><![CDATA[attributes.uriParams.vendorId]]></ee:set-variable>
+                <ee:set-variable variableName="orderId"><![CDATA[attributes.uriParams.orderId]]></ee:set-variable>			
+				<ee:set-variable variableName="target.method" ><![CDATA[%dw 2.0
+output application/java
+---
+if(vars.status == p('delivery.orders.status.draft.name')) p('ueOrderStatusDraftMethod') else p('ueOrderStatusActiveMethod')]]></ee:set-variable>
+			
+			<ee:set-variable variableName="target.path" ><![CDATA[%dw 2.0
+output application/java
+---
+if(vars.status == p('delivery.orders.status.draft.name')) p('ueOrderStatusDraftPath') ++ '/' ++ attributes.uriParams.orderId  else p('ueOrderStatusActivePath') ++ '/'  ++ attributes.uriParams.orderId]]></ee:set-variable>
+			
+			<ee:set-variable variableName="target.host" ><![CDATA[%dw 2.0
+output application/java
+---
+if(vars.status == p('delivery.orders.status.draft.name')) p('ueOrderStatusDraftHost.bk') else p('ueOrderStatusActiveHost.bk')]]></ee:set-variable>
+			
+			<ee:set-variable variableName="target.port" ><![CDATA[%dw 2.0
+output application/java
+---
+if(vars.status == p('delivery.orders.status.draft.name')) p('ueOrderStatusDraftPort.bk') else p('ueOrderStatusActivePort.bk')]]></ee:set-variable>			
+		</ee:variables>
+		</ee:transform>
+		<ee:transform doc:name="Transform Message" doc:id="45a3038e-7c61-418a-af69-7f04650084c9" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+						<ee:set-variable variableName="target.port.backup"><![CDATA[vars."target.port"]]></ee:set-variable>
+						<ee:set-variable variableName="target.host.backup"><![CDATA[vars."target.host"]]></ee:set-variable>
+						<ee:set-variable variableName="target.path.backup"><![CDATA[vars."target.path"]]></ee:set-variable>
+						<ee:set-variable variableName="target.method.backup"><![CDATA[vars."target.method"]]></ee:set-variable>	
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="backendRequester" doc:id="149d85d5-14ce-4780-ae06-82f59a4f0999" name="backendRequester"/>
+		<validation:is-true doc:name="Is true" doc:id="ed6a4695-93d0-4d92-b524-c7826edb0f51" config-ref="Validation_Config" message="Invalid result code" expression="#[vars.resultCode == 200 or vars.resultCode == 401]"/>
+		<flow-ref doc:name="uber-refresh-token" doc:id="a3398ae5-fcc4-40d4-9341-e5d8a280f9b7" name="uber-refresh-token"/>
+		<validation:is-true doc:name="validate response" doc:id="3db2f65f-99ad-477b-9df3-0ff178efe1c6" config-ref="Validation_Config" expression="#[vars.resultCode == 200]" message="Invalid result code" />
+		<ee:transform doc:name="Transform Message" doc:id="ba30265f-9517-4af9-946a-abe03f864540" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+{
+	"status": {
+		"code": 20000,
+		"message": "the call was successful",
+		"type": "success"
+	},
+	"response": {
+		"delivery": {
+			"vendorStoreId": payload.'store_id',
+			"vendorDraftOrderId": payload.'draft_order_id',
+			"vendorOrderId": payload.'order_id',
+			"status": payload.'current_state'
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="correlation-id" ><![CDATA[vars.correlationId]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<error-handler>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="56e28ffa-f0b3-4d13-8458-d501c3eb98d9" >
+				<flow-ref doc:name="create-error-response" doc:id="cc089c8d-53fe-4291-9b45-2944d123713e" name="create-error-response"/>
+			</on-error-continue>
+		</error-handler>		
+		
+    </flow>
+</mule>
